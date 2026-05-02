@@ -35,7 +35,7 @@ with st.sidebar:
     
     # Campo de Upload do PDF
     st.subheader("📄 Seu Perfil LinkedIn")
-    pdf_upload = st.file_uploader("Suba o PDF do seu perfil (Botão 'Mais' > 'Salvar como PDF' no LinkedIn)", type="pdf")
+    pdf_upload = st.file_uploader("Suba o PDF do seu perfil (Clique em Perfil > Botão 'Recursos' > 'Salvar como PDF' no LinkedIn)", type="pdf")
     
     # Armazena o texto do PDF no estado da sessão se houver upload
     if pdf_upload is not None:
