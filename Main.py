@@ -9,7 +9,7 @@ st.set_page_config(page_title="ElevateProfile IA", page_icon="🚀", layout="wid
 st.markdown("""
     <style>
     .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
-    [data-testid="stSidebar"] { background-color: #f0f2f6; }
+    [data-testid="stSidebar"] { background-color: #D8D9DD; }
     </style>
     """, unsafe_allow_html=True)
 
