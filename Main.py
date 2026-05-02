@@ -1,117 +1,105 @@
 import streamlit as st
 import google.generativeai as genai
 import time
+from pypdf import PdfReader
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="ElevateProfile IA", page_icon="🚀", layout="wide")
 
-# Estilização para o Chat
-st.markdown("""
-    <style>
-    .stChatMessage { border-radius: 15px; margin-bottom: 10px;  background-color: #000000;}
-    [data-testid="stSidebar"] { background-color: #000000; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- CONFIGURAÇÃO DE SEGURANÇA (API KEY) ---
+# --- CONFIGURAÇÃO DE SEGURANÇA ---
 try:
-    # No Streamlit Cloud, adicione GEMINI_API_KEY em Advanced Settings > Secrets
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel('gemini-1.5-flash')
     else:
-        st.error("Chave de API não encontrada nos Secrets do Streamlit.")
+        st.error("Configure 'GEMINI_API_KEY' nos Secrets do Streamlit Cloud.")
         st.stop()
 except Exception as e:
-    st.error(f"Erro ao configurar IA: {e}")
+    st.error(f"Erro na API: {e}")
     st.stop()
 
-# --- SIDEBAR (Entrada de Dados e Contexto) ---
+# --- FUNÇÃO PARA EXTRAIR TEXTO DO PDF ---
+def extrair_texto_pdf(pdf_file):
+    try:
+        reader = PdfReader(pdf_file)
+        texto_completo = ""
+        for page in reader.pages:
+            texto_completo += page.extract_text()
+        return texto_completo
+    except Exception as e:
+        return f"Erro ao ler PDF: {e}"
+
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("⚙️ Configurações")
-    st.markdown("Forneça o contexto para a IA analisar seu perfil de forma precisa.")
+    st.title("⚙️ Painel de Controle")
     
-    linkedin_url = st.text_input("🔗 Link do LinkedIn", placeholder="https://linkedin.com/in/usuario")
+    # Campo de Upload do PDF
+    st.subheader("📄 Seu Perfil LinkedIn")
+    pdf_upload = st.file_uploader("Suba o PDF do seu perfil (Botão 'Mais' > 'Salvar como PDF' no LinkedIn)", type="pdf")
     
-    setor = st.selectbox(
-        "💼 Área de Atuação",
-        ["Tecnologia", "Marketing", "Finanças", "Design", "Engenharia", "Saúde", "Vendas", "Outros"]
-    )
-    
-    objetivo = st.text_area(
-        "🎯 Seu Objetivo", 
-        placeholder="Ex: Transição de carreira para dados ou promoção para gerência..."
-    )
+    # Armazena o texto do PDF no estado da sessão se houver upload
+    if pdf_upload is not None:
+        with st.spinner("Extraindo dados do currículo..."):
+            st.session_state['perfil_texto'] = extrair_texto_pdf(pdf_upload)
+            st.success("Perfil carregado!")
     
     st.markdown("---")
-    if st.button("🗑️ Limpar Conversa"):
-        st.session_state.messages = []
-        st.rerun()
+    setor = st.selectbox("💼 Setor", ["Tecnologia", "Marketing", "Gestão", "Vendas", "Saúde", "Outros"])
+    objetivo = st.text_area("🎯 Seu Objetivo", placeholder="Ex: Transição para análise de dados")
 
 # --- INTERFACE DE CHAT ---
-st.title("💬 Consultor de Carreira IA")
-st.caption("Sugestões personalizadas para alavancar seu perfil profissional.")
+st.title("💬 Consultor de Carreira")
 
-# Inicialização do histórico
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Olá! Preencha seus dados na barra lateral e me pergunte qualquer coisa sobre como melhorar seu perfil ou carreira."}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "Olá! Suba o PDF do seu perfil na barra lateral para começarmos a análise personalizada."}]
 
-# Exibição das mensagens existentes
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- FUNÇÃO DE ABSTRAÇÃO DA IA ---
-def processar_resposta_ia(prompt_usuario):
-    """
-    Abstrai o prompt mestre injetando os dados da sidebar 
-    sem que o usuário final veja a complexidade da instrução.
-    """
-    contexto_mestre = f"""
-    Você é um consultor sênior de Personal Branding e Recrutamento.
-    CONTEXTO DO USUÁRIO:
-    - LinkedIn: {linkedin_url if linkedin_url else "Não informado"}
+# --- LÓGICA DA IA ---
+def chamar_ia(pergunta_usuario):
+    # Recupera o texto extraído do PDF
+    texto_perfil = st.session_state.get('perfil_texto', "Nenhum perfil em PDF foi enviado.")
+    
+    prompt_mestre = f"""
+    Você é um consultor de carreira sênior.
+    CONTEXTO DO PERFIL (Extraído de PDF):
+    {texto_perfil}
+    
+    CONTEXTO ADICIONAL:
     - Setor: {setor}
-    - Objetivo Atual: {objetivo if objetivo else "Evolução profissional geral"}
+    - Objetivo: {objetivo}
+
+    PERGUNTA DO USUÁRIO: "{pergunta_usuario}"
 
     INSTRUÇÕES:
-    1. Analise o objetivo e o setor para dar dicas de SEO de LinkedIn (palavras-chave).
-    2. Sugira pelo menos 1 livro relevante para o objetivo de '{objetivo}'.
-    3. Se o link do LinkedIn for fornecido, oriente como destacar experiências nele.
-    4. Responda em Português (Brasil) com tom profissional e encorajador.
-    5. Formate a saída com Markdown (negritos, listas e títulos).
-
-    PERGUNTA DO USUÁRIO: {prompt_usuario}
+    1. Baseie suas sugestões estritamente no conteúdo do PDF fornecido acima.
+    2. Identifique pontos fracos no resumo ou experiências e sugira melhorias com foco em SEO para recrutadores.
+    3. Recomende livros específicos para o objetivo '{objetivo}'.
+    4. Responda em Português com Markdown.
     """
     
-    response = model.generate_content(contexto_mestre)
+    response = model.generate_content(prompt_mestre)
     return response.text
 
-# --- ENTRADA DO USUÁRIO NO CHAT ---
-if user_input := st.chat_input("Diga algo como: 'Como melhorar meu resumo?'"):
-    
-    # 1. Adiciona pergunta do usuário ao chat
+# --- CAMPO DE CHAT ---
+if user_input := st.chat_input("Ex: Analise minhas experiências e sugira 3 mudanças."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 2. Resposta da IA
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        with st.spinner("Consultando especialistas em carreira..."):
+        with st.spinner("Analisando seu PDF..."):
             try:
-                full_response = processar_resposta_ia(user_input)
-                
-                # Efeito de digitação (UX)
+                full_response = chamar_ia(user_input)
                 displayed_text = ""
                 for char in full_response:
                     displayed_text += char
                     message_placeholder.markdown(displayed_text + "▌")
-                    time.sleep(0.003)
+                    time.sleep(0.002)
                 message_placeholder.markdown(full_response)
-                
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
             except Exception as e:
-                st.error("Erro ao gerar resposta. Verifique sua conexão e chave de API.")
+                st.error(f"Erro: {e}")
