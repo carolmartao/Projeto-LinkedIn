@@ -54,10 +54,10 @@ def chamar_ia(pergunta_usuario, setor, objetivo):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("⚙️ Painel de Controle")
+    st.title("🤓 Adicione suas Informações")
     
     st.subheader("📄 Seu Perfil LinkedIn")
-    pdf_upload = st.file_uploader("Suba o PDF do seu perfil", type="pdf")
+    pdf_upload = st.file_uploader("Suba o PDF do seu perfil (Abra o LinkedIn > Perfil > Recursos > Baixar PDF)", type="pdf")
     
     if pdf_upload is not None:
         if 'perfil_texto' not in st.session_state:
@@ -66,12 +66,12 @@ with st.sidebar:
                 st.success("Perfil carregado!")
     
     st.markdown("---")
-    setor_selecionado = st.selectbox("💼 Setor", ["Tecnologia", "Marketing", "Gestão", "Vendas", "Saúde", "Outros"])
+    setor_selecionado = st.selectbox("💼 Setor", ["Tecnologia", "Marketing", "Gestão", "Vendas", "Saúde", "investimento", "Bancário", "Outros"])
     objetivo_texto = st.text_area("🎯 Seu Objetivo", placeholder="Ex: Transição para análise de dados")
 
     # BOTÃO DE ANALISAR
     # O botão só funciona se houver PDF e Objetivo preenchido
-    botao_analisar = st.button("🚀 Iniciar Análise Completa", disabled=not (pdf_upload and objetivo_texto))
+    botao_analisar = st.button("🚀 Iniciar Análise Completa", disabled=not (pdf_upload))
     
     if st.button("🗑️ Limpar Chat"):
         st.session_state.messages = []
