@@ -10,7 +10,7 @@ st.set_page_config(page_title="ElevateProfile IA", page_icon="🚀", layout="wid
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
     else:
         st.error("Configure 'GEMINI_API_KEY' nos Secrets do Streamlit Cloud.")
         st.stop()
