@@ -8,7 +8,7 @@ st.set_page_config(page_title="ElevateProfile IA", page_icon="🚀", layout="wid
 # Estilização para o Chat
 st.markdown("""
     <style>
-    .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px;  background-color: #000000;}
     [data-testid="stSidebar"] { background-color: #000000; }
     </style>
     """, unsafe_allow_html=True)
