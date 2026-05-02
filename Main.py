@@ -29,77 +29,87 @@ def extrair_texto_pdf(pdf_file):
     except Exception as e:
         return f"Erro ao ler PDF: {e}"
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("⚙️ Painel de Controle")
-    
-    # Campo de Upload do PDF
-    st.subheader("📄 Seu Perfil LinkedIn")
-    pdf_upload = st.file_uploader("Suba o PDF do seu perfil (Clique em Perfil > Botão 'Recursos' > 'Salvar como PDF' no LinkedIn)", type="pdf")
-    
-    # Armazena o texto do PDF no estado da sessão se houver upload
-    if pdf_upload is not None:
-        with st.spinner("Extraindo dados do currículo..."):
-            st.session_state['perfil_texto'] = extrair_texto_pdf(pdf_upload)
-            st.success("Perfil carregado!")
-    
-    st.markdown("---")
-    setor = st.selectbox("💼 Setor", ["Tecnologia", "Marketing", "Gestão", "Vendas", "Saúde", "Outros"])
-    objetivo = st.text_area("🎯 Seu Objetivo", placeholder="Ex: Transição para análise de dados")
-
-# --- INTERFACE DE CHAT ---
-st.title("💬 Consultor de Carreira")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Olá! Suba o PDF do seu perfil na barra lateral para começarmos a análise personalizada."}]
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
 # --- LÓGICA DA IA ---
-def chamar_ia(pergunta_usuario):
-    # Recupera o texto extraído do PDF
-    texto_perfil = st.session_state.get('perfil_texto', "Nenhum perfil em PDF foi enviado.")
+def chamar_ia(pergunta_usuario, setor, objetivo):
+    texto_perfil = st.session_state.get('perfil_texto', "Nenhum perfil enviado.")
     
     prompt_mestre = f"""
     Você é um consultor de carreira sênior.
-    CONTEXTO DO PERFIL (Extraído de PDF):
+    CONTEXTO DO PERFIL:
     {texto_perfil}
     
     CONTEXTO ADICIONAL:
     - Setor: {setor}
     - Objetivo: {objetivo}
 
-    PERGUNTA DO USUÁRIO: "{pergunta_usuario}"
-
     INSTRUÇÕES:
-    1. Baseie suas sugestões estritamente no conteúdo do PDF fornecido acima.
-    2. Identifique pontos fracos no resumo ou experiências e sugira melhorias com foco em SEO para recrutadores.
-    3. Recomende livros específicos para o objetivo '{objetivo}'.
-    4. Responda em Português com Markdown.
+    1. Responda à pergunta: "{pergunta_usuario}"
+    2. Identifique pontos de melhoria em SEO e clareza no perfil.
+    3. Sugira 2 livros úteis para quem deseja atuar em {setor} com o objetivo de {objetivo}.
+    4. Use Markdown e Português do Brasil.
     """
     
     response = model.generate_content(prompt_mestre)
     return response.text
 
-# --- CAMPO DE CHAT ---
-if user_input := st.chat_input("Ex: Analise minhas experiências e sugira 3 mudanças."):
-    st.session_state.messages.append({"role": "user", "content": user_input})
+# --- SIDEBAR ---
+with st.sidebar:
+    st.title("⚙️ Painel de Controle")
+    
+    st.subheader("📄 Seu Perfil LinkedIn")
+    pdf_upload = st.file_uploader("Suba o PDF do seu perfil", type="pdf")
+    
+    if pdf_upload is not None:
+        if 'perfil_texto' not in st.session_state:
+            with st.spinner("Extraindo dados..."):
+                st.session_state['perfil_texto'] = extrair_texto_pdf(pdf_upload)
+                st.success("Perfil carregado!")
+    
+    st.markdown("---")
+    setor_selecionado = st.selectbox("💼 Setor", ["Tecnologia", "Marketing", "Gestão", "Vendas", "Saúde", "Outros"])
+    objetivo_texto = st.text_area("🎯 Seu Objetivo", placeholder="Ex: Transição para análise de dados")
+
+    # BOTÃO DE ANALISAR
+    # O botão só funciona se houver PDF e Objetivo preenchido
+    botao_analisar = st.button("🚀 Iniciar Análise Completa", disabled=not (pdf_upload and objetivo_texto))
+    
+    if st.button("🗑️ Limpar Chat"):
+        st.session_state.messages = []
+        st.rerun()
+
+# --- INTERFACE DE CHAT ---
+st.title("💬 Consultor de Carreira")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "Olá! Complete os dados na lateral e clique em 'Iniciar Análise' para começarmos."}]
+
+# Exibição do Histórico
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# --- GATILHO: ANÁLISE INICIAL PELO BOTÃO ---
+if botao_analisar:
+    pergunta_inicial = "Faça uma análise inicial detalhada do meu perfil com base no meu objetivo e setor."
+    st.session_state.messages.append({"role": "user", "content": pergunta_inicial})
+    
     with st.chat_message("user"):
-        st.markdown(user_input)
+        st.markdown(pergunta_inicial)
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        with st.spinner("Analisando seu PDF..."):
-            try:
-                full_response = chamar_ia(user_input)
-                displayed_text = ""
-                for char in full_response:
-                    displayed_text += char
-                    message_placeholder.markdown(displayed_text + "▌")
-                    time.sleep(0.002)
-                message_placeholder.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e:
-                st.error(f"Erro: {e}")
+        with st.spinner("Gerando diagnóstico inicial..."):
+            resposta = chamar_ia(pergunta_inicial, setor_selecionado, objetivo_texto)
+            st.markdown(resposta)
+            st.session_state.messages.append({"role": "assistant", "content": resposta})
+
+# --- CAMPO DE CHAT (PERGUNTAS LIVRES) ---
+if prompt := st.chat_input("Dúvida específica? Ex: Como descrever meu último cargo?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Pensando..."):
+            resposta = chamar_ia(prompt, setor_selecionado, objetivo_texto)
+            st.markdown(resposta)
+            st.session_state.messages.append({"role": "assistant", "content": resposta})
